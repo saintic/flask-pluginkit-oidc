@@ -87,6 +87,7 @@ python test_client.py
   "status": 1,
   "sub": "用户唯一标识"
 }
+```
 
 ## 路由
 

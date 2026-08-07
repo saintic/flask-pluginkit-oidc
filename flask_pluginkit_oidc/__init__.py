@@ -17,12 +17,21 @@ limitations under the License.
 
 from os import getenv
 
-from flask import Blueprint, url_for, request, session, redirect, current_app
+from flask import (
+    Blueprint,
+    url_for,
+    request,
+    session,
+    redirect,
+    current_app,
+    g,
+    Response,
+)
 from authlib.integrations.flask_client import OAuth
 
 __plugin_name__ = "oidc"
 __description__ = "OIDC Client for staugur/passportd"
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Hiroshi.tao <me@tcw.im>"
 __license__ = "BSD 3-Clause License"
 __license_file__ = "LICENSE"
@@ -30,8 +39,8 @@ __readme_file__ = "README.md"
 __state__ = getenv("PASSPORTD_OIDC_STATE", "enabled")
 
 # 模块级只创建 OAuth 空实例，延迟到首次请求时初始化
-oauth = OAuth()
 _oauth_ready = False
+oauth = OAuth()
 bp = Blueprint(__plugin_name__, __plugin_name__)
 
 
@@ -71,16 +80,22 @@ def authorized():
         return f"Error: {err}, description: {request.args.get('error_description')}"
     token = oauth.passportd_oidc.authorize_access_token()
     # set login state
-    session["user"] = token["userinfo"]
-    return redirect("/")
+    set_login_state = getattr(g, "set_login_state", None)
+    if set_login_state and callable(set_login_state):
+        ret = set_login_state(token["userinfo"])
+        if isinstance(ret, Response):
+            return ret
+    else:
+        session["user"] = token["userinfo"]
+    return redirect(request.args.get("next") or getattr(g, "login_redirect_url", "/"))
 
 
 def register():
     """Flask-PluginKit 入口。
 
-    OAuth 无法在此处初始化（无应用上下文），通过 hep before_request 延迟到首次请求。
+    OAuth 无法在此处初始化（无应用上下文），通过 before_first_request 延迟到首次请求。
     """
     return dict(
         bep=dict(blueprint=bp, prefix="/oauth2/passportd"),
-        hep=dict(before_request=_ensure_oauth),
+        hep=dict(before_first_request=_ensure_oauth),
     )

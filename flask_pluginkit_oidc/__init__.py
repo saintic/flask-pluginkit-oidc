@@ -31,9 +31,10 @@ from authlib.integrations.flask_client import OAuth
 
 __plugin_name__ = "oidc"
 __description__ = "OIDC Client for staugur/passportd"
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "Hiroshi.tao <me@tcw.im>"
-__license__ = "BSD 3-Clause License"
+__url__ = "https://github.com/saintic/flask-pluginkit-oidc"
+__license__ = "BSD 3-Clause"
 __license_file__ = "LICENSE"
 __readme_file__ = "README.md"
 __state__ = getenv("PASSPORTD_OIDC_STATE", "enabled")

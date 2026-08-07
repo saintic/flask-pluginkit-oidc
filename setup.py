@@ -9,12 +9,14 @@ def _get_meta(meta):
         meta_str = ast.literal_eval(pat.search(fh.read().decode('utf-8')).group(1))
     return str(meta_str)
 
-
 def _get_author():
     mail_re = re.compile(r'(.*)\s<(.*)>')
     author = _get_meta("author")
     return (mail_re.search(author).group(1), mail_re.search(author).group(2))
 
+def _get_readme() -> str:
+    with open("README.md", "rt", encoding="utf8") as f:
+        return f.read()
 
 (author, email) = _get_author()
 setup(
@@ -26,6 +28,8 @@ setup(
     url='https://github.com/saintic/flask-pluginkit-oidc',
     keywords="flask-pluginkit",
     description=_get_meta("description"),
+    long_description=_get_readme(),
+    long_description_content_type="text/markdown",
     packages=['flask_pluginkit_oidc',],
     zip_safe=False,
     include_package_data=True,

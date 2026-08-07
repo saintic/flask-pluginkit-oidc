@@ -31,7 +31,7 @@ from authlib.integrations.flask_client import OAuth
 
 __plugin_name__ = "oidc"
 __description__ = "OIDC Client for staugur/passportd"
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 __author__ = "Hiroshi.tao <me@tcw.im>"
 __url__ = "https://github.com/saintic/flask-pluginkit-oidc"
 __license__ = "BSD 3-Clause"
@@ -94,9 +94,9 @@ def authorized():
 def register():
     """Flask-PluginKit 入口。
 
-    OAuth 无法在此处初始化（无应用上下文），通过 before_first_request 延迟到首次请求。
+    OAuth 无法在此处初始化（无应用上下文），通过 before_request 延迟到首次请求。
     """
     return dict(
         bep=dict(blueprint=bp, prefix="/oauth2/passportd"),
-        hep=dict(before_first_request=_ensure_oauth),
+        hep=dict(before_request=_ensure_oauth),
     )

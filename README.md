@@ -13,7 +13,7 @@
 ### 1. 安装
 
 ```bash
-pip install .
+pip install flask-pluginkit-oidc
 # 或从 Git 安装
 pip install git+https://github.com/saintic/flask-pluginkit-oidc@master
 ```

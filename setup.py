@@ -34,7 +34,7 @@ setup(
     zip_safe=False,
     include_package_data=True,
     install_requires=[
-        'Flask-PluginKit>=3.8.0',
+        'Flask-PluginKit>=3.11.0',
         'authlib>=1.7.0'
     ],
     classifiers=[
@@ -46,6 +46,7 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
         'Topic :: Software Development :: Libraries :: Python Modules'

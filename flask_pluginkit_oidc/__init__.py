@@ -23,7 +23,6 @@ from flask import (
     request,
     session,
     redirect,
-    current_app,
     g,
     Response,
 )
@@ -31,41 +30,40 @@ from authlib.integrations.flask_client import OAuth
 
 __plugin_name__ = "oidc"
 __description__ = "OIDC Client for staugur/passportd"
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 __author__ = "Hiroshi.tao <me@tcw.im>"
 __url__ = "https://github.com/saintic/flask-pluginkit-oidc"
 __license__ = "BSD 3-Clause"
 __license_file__ = "LICENSE"
 __readme_file__ = "README.md"
 __state__ = getenv("PASSPORTD_OIDC_STATE", "enabled")
+__appversion__ = ">=3.11.0"
 
-# 模块级只创建 OAuth 空实例，延迟到首次请求时初始化
-_oauth_ready = False
+# 模块级只创建 OAuth 空实例，由 on_app_ready 完成初始化
 oauth = OAuth()
 bp = Blueprint(__plugin_name__, __plugin_name__)
 
 
-def _ensure_oauth():
-    """延迟初始化 OAuth：register() 不在应用上下文，但 before_request 钩子在。
+def on_app_ready(app):
+    """应用就绪状态点（Flask-PluginKit >= 3.11.0）。
 
-    Authlib 自动从 app.config 读取 {NAME}_CLIENT_ID 等键（如 PASSPORTD_OIDC_CLIENT_ID），
-    无需手动传入 client_id / client_secret。
+    register() 不在应用上下文，但 on_app_ready 在应用完全就绪后调用，
+    此时可以安全地初始化 OAuth 并注册 OIDC 客户端。
+    Authlib 自动从 app.config 读取 {NAME}_CLIENT_ID 等键，无需显式传入。
     """
-    global _oauth_ready
-    if not _oauth_ready:
-        oauth.init_app(current_app)
+    with app.app_context():
+        oauth.init_app(app)
         oauth.register(
             name="passportd_oidc",
-            server_metadata_url=current_app.config.get(
+            server_metadata_url=app.config.get(
                 "PASSPORTD_OIDC_SERVER_METADATA_URL",
                 "https://passport.saintic.com/.well-known/openid-configuration",
             ),
-            client_kwargs=current_app.config.get(
+            client_kwargs=app.config.get(
                 "PASSPORTD_OIDC_CLIENT_KWARGS",
                 {"scope": "openid profile"},
             ),
         )
-        _oauth_ready = True
 
 
 @bp.route("/login")
@@ -92,11 +90,6 @@ def authorized():
 
 
 def register():
-    """Flask-PluginKit 入口。
-
-    OAuth 无法在此处初始化（无应用上下文），通过 before_request 延迟到首次请求。
-    """
     return dict(
         bep=dict(blueprint=bp, prefix="/oauth2/passportd"),
-        hep=dict(before_request=_ensure_oauth),
     )

@@ -5,7 +5,7 @@
 ## 依赖
 
 - Python >= 3.9
-- flask-pluginkit >= 3.8.0
+- flask-pluginkit >= 3.11.0
 - authlib >= 1.7.0
 
 ## 快速开始
@@ -98,8 +98,8 @@ python test_client.py
 
 ## 工作原理
 
-1. 插件通过 Flask-PluginKit 的 `register()` 入口加载，注册 Blueprint 和 `before_first_request` 钩子
-2. `before_first_request` 钩子在首次请求时延迟初始化 Authlib OAuth（延迟初始化是因为 `register()` 不在 Flask 应用上下文中）
+1. 插件通过 Flask-PluginKit 的 `register()` 入口加载，注册 Blueprint
+2. `on_app_ready(app)` 在应用完全就绪后调用（Flask-PluginKit >= 3.11.0），此时有应用上下文，安全地初始化 `oauth.init_app(app)` 并注册 OIDC 客户端
 3. 用户访问 `/login` → 重定向到 OIDC Provider 授权页
 4. Provider 认证后回调 `/authorized` → Authlib 完成 token 交换 + userinfo 获取
 5. userinfo 默认写入 `session["user"] = userinfo` 或通过 `g.set_login_state(userinfo)` 设置登录状态

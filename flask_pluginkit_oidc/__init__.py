@@ -17,6 +17,7 @@ limitations under the License.
 
 import json
 from os import getenv
+from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
@@ -24,6 +25,7 @@ from flask import (
     request,
     session,
     redirect,
+    current_app,
     g,
     Response,
 )
@@ -86,15 +88,41 @@ class RedisStateIntegration(FlaskIntegration):
 def _get_redis_client(app):
     """按配置获取 Redis 客户端。
 
-    优先级：PASSPORTD_OIDC_REDIS（实例） > PASSPORTD_OIDC_REDIS_URL（连接串）。
+    优先级：PASSPORTD_OIDC_REDIS（实例） > PASSPORTD_OIDC_REDIS_URL（连接串/环境变量）。
     """
     rc = app.config.get("PASSPORTD_OIDC_REDIS")
     if rc is None:
         from redis import Redis
 
-        redis_url = app.config.get("PASSPORTD_OIDC_REDIS_URL")
+        redis_url = app.config.get("PASSPORTD_OIDC_REDIS_URL") or getenv(
+            "PASSPORTD_OIDC_REDIS_URL", "redis://localhost:6379/0"
+        )
         rc = Redis.from_url(redis_url, decode_responses=True)
     return rc
+
+
+def _is_valid_url(url):
+    """校验 URL 是否为合法的 http/https 地址。"""
+    try:
+        parsed = urlparse(url)
+    except (TypeError, ValueError):
+        return False
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+
+
+def _load_issuer():
+    """加载 OIDC discovery 文档中的 issuer（Authlib 会缓存）。
+
+    仅当 issuer 是合法 http/https URL 时返回，否则返回 None。
+    """
+    try:
+        metadata = oauth.passportd_oidc.load_server_metadata()
+    except Exception:
+        return None
+    issuer = (metadata or {}).get("issuer")
+    if issuer and _is_valid_url(issuer):
+        return issuer
+    return None
 
 
 def on_app_ready(app):
@@ -124,18 +152,43 @@ def on_app_ready(app):
                 {"scope": "openid profile"},
             ),
         )
-        if app.config.get("PASSPORTD_OIDC_STATE_STORE", "session") == "redis":
+        state_store = app.config.get("PASSPORTD_OIDC_STATE_STORE") or getenv(
+            "PASSPORTD_OIDC_STATE_STORE", "session"
+        )
+        if state_store == "redis":
+            expires_in = app.config.get("PASSPORTD_OIDC_STATE_EXPIRES")
+            if expires_in is None:
+                try:
+                    expires_in = int(getenv("PASSPORTD_OIDC_STATE_EXPIRES", "3600"))
+                except (TypeError, ValueError):
+                    expires_in = 3600
             client.framework = RedisStateIntegration(
                 name,
                 redis_client=_get_redis_client(app),
-                expires_in=app.config.get("PASSPORTD_OIDC_STATE_EXPIRES", 3600),
+                expires_in=expires_in,
             )
+        # 暴露 OIDC Server 共享信息，供外部模块/模板复用。
+        # server_url 即 discovery 文档中的 issuer（若为合法 URL）。
+        app.extensions["flask_pluginkit_oidc"] = {
+            "server_url": _load_issuer(),
+            "client": client,
+        }
 
 
 @bp.route("/login")
 def login():
     redirect_uri = url_for(".authorized", _external=True)
     return oauth.passportd_oidc.authorize_redirect(redirect_uri)
+
+
+@bp.route("/profile")
+def profile():
+    """跳转到 OIDC Provider 的用户资料页（issuer 即签发地址）。"""
+    meta = current_app.extensions.get("flask_pluginkit_oidc") or {}
+    server_url = meta.get("server_url")
+    if server_url:
+        return redirect(server_url)
+    return redirect("/")
 
 
 @bp.route("/authorized")

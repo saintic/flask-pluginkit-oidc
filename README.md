@@ -29,10 +29,10 @@ pip install git+https://github.com/saintic/flask-pluginkit-oidc@master
 | `PASSPORTD_OIDC_SERVER_METADATA_URL` | `PASSPORTD_OIDC_SERVER_METADATA_URL` | 否   | OIDC Discovery 端点，默认 `https://passport.saintic.com/.well-known/openid-configuration` |
 | `PASSPORTD_OIDC_CLIENT_KWARGS`       | —                                    | 否   | 传递给 OAuth client 的额外参数，默认 `{"scope": "openid profile"}`                        |
 | `PASSPORTD_OIDC_STATE`               | `PASSPORTD_OIDC_STATE`               | 否   | 插件启用状态，默认是enabled，禁用是disabled                                               |
-| `PASSPORTD_OIDC_STATE_STORE`         | —                                    | 否   | OAuth state 存储方式：`session`（默认，存客户端 session cookie）或 `redis`（存服务端 Redis） |
-| `PASSPORTD_OIDC_REDIS_URL`           | `PASSPORTD_OIDC_REDIS_URL`           | 否   | Redis 连接串，仅 `STATE_STORE=redis` 时使用              |
+| `PASSPORTD_OIDC_STATE_STORE`         | `PASSPORTD_OIDC_STATE_STORE`         | 否   | OAuth state 存储方式：`session`（默认，存客户端 session cookie）或 `redis`（存服务端 Redis） |
+| `PASSPORTD_OIDC_REDIS_URL`           | `PASSPORTD_OIDC_REDIS_URL`           | 否   | Redis 连接串，仅 `STATE_STORE=redis` 时使用，默认 `redis://localhost:6379/0` |
 | `PASSPORTD_OIDC_REDIS`               | —                                    | 否   | 直接传入 Redis 客户端实例（优先级高于 `REDIS_URL`），仅 `STATE_STORE=redis` 时使用        |
-| `PASSPORTD_OIDC_STATE_EXPIRES`       | —                                    | 否   | state 过期时间（秒），仅 `STATE_STORE=redis` 时使用，默认 `3600`                           |
+| `PASSPORTD_OIDC_STATE_EXPIRES`       | `PASSPORTD_OIDC_STATE_EXPIRES`       | 否   | state 过期时间（秒），仅 `STATE_STORE=redis` 时使用，默认 `3600`                           |
 
 > Authlib 约定：`oauth.register(name="passportd_oidc")` 会自动从 `app.config` 查找 `PASSPORTD_OIDC_CLIENT_ID` 和 `PASSPORTD_OIDC_CLIENT_SECRET`，无需手动传入。
 
@@ -89,7 +89,7 @@ python test_client.py
   "nickname": "昵称",
   "picture": "头像地址",
   "status": 1,
-  "sub": "用户唯一标识"
+  "sub": "用户唯一标识UID"
 }
 ```
 
@@ -118,6 +118,26 @@ app.config.update(
 | ------------------------------ | ---------------------------------------- |
 | `/oauth2/passportd/login`      | 发起 OIDC 授权，重定向至 Provider 登录页 |
 | `/oauth2/passportd/authorized` | OIDC 回调地址，Provider 需配置为此 URL   |
+| `/oauth2/passportd/profile`    | 跳转到 OIDC Provider 的用户资料页         |
+
+## 暴露 OIDC Server 信息
+
+插件在 `on_app_ready` 时将共享信息挂到 `app.extensions["flask_pluginkit_oidc"]`，外部模块 / 模板可直接复用：
+
+```python
+# 外部模块中
+oidc_meta = current_app.extensions["flask_pluginkit_oidc"]
+oidc_meta["server_url"]   # OIDC Provider 的 issuer（discovery 文档中的签发地址），如 https://passport.saintic.com
+oidc_meta["client"]       # Authlib OAuth 客户端实例
+```
+
+> `server_url` 即 OIDC discovery 文档中的 `issuer` 字段（签发地址），仅当其是合法的 http/https URL 时才返回；插件在 `on_app_ready` 时加载一次，Authlib 会缓存 discovery 文档。
+
+模板中也可通过 `app.jinja_env.globals` 自行挂载后使用。
+
+## 跳转用户资料页
+
+`/oauth2/passportd/profile` 视图直接重定向到 OIDC Provider 的 `issuer`（签发地址）；若 issuer 非法或为空，则兜底跳转首页 `/`。
 
 ## 工作原理
 

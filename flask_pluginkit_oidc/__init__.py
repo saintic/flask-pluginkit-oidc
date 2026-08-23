@@ -35,7 +35,7 @@ from authlib.integrations.flask_client.integration import FlaskIntegration
 
 __plugin_name__ = "oidc"
 __description__ = "OIDC Client for staugur/passportd"
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 __author__ = "Hiroshi.tao <me@tcw.im>"
 __url__ = "https://github.com/saintic/flask-pluginkit-oidc"
 __license__ = "BSD 3-Clause"
@@ -216,4 +216,5 @@ def authorized():
 def register():
     return dict(
         bep=dict(blueprint=bp, prefix="/oauth2/passportd"),
+        tep=dict(passportd_oidc_user_endpoint="/oauth2/passportd/profile"),
     )
